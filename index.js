@@ -3,6 +3,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const apiRoutes = require('./routes/api');
+const authRoutes = require('./routes/auth.routes');
+
+console.log(typeof authRoutes); 
 
 const app = express();
 
@@ -12,7 +15,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api', apiRoutes);
-
+app.use('/auth', authRoutes)
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connected to MongoDB'))
