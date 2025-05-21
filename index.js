@@ -1,8 +1,4 @@
-// const express = require('express');
-// const mongoose = require('mongoose');
-// const cors = require('cors');
-// const dotenv = require('dotenv');
-// const apiRoutes = require('./routes/api');
+
 require('dotenv').config();
 console.log('EMAIL_USER:', process.env.EMAIL_USER || 'MISSING');
 console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '[REDACTED]' : 'MISSING');
@@ -18,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 app.use('/api', apiRoutes);
 
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGO_URI,)
   .then(() => console.log('MongoDB connecté'))
   .catch(err => console.error('Erreur MongoDB:', err));
 
