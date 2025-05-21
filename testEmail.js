@@ -1,5 +1,5 @@
-const nodemailer = require('nodemailer');
 require('dotenv').config();
+const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -11,8 +11,9 @@ const transporter = nodemailer.createTransport({
 
 transporter.sendMail({
   from: 'Ñu Dem <no-reply@nudem.com>',
-  to: 'khoudossmbacke18@gmail.com',
-  subject: 'Test Email',
-  text: 'Jàmm ak jàmm ! Ceci est un test de Ñu Dem.',
-}).then(() => console.log('Email envoyé'))
-  .catch(err => console.error('Erreur:', err));
+  to: 'khoudossmbacke2000@gmail.com',
+  subject: 'Test Ñu Dem',
+  text: 'Jàmm ak jàmm ! Test email.',
+})
+  .then(() => console.log('Email envoyé'))
+  .catch(err => console.error('Erreur:', err.message));

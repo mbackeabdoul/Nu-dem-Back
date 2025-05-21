@@ -1,119 +1,15 @@
-// Modifications à apporter à emailService.js
 const nodemailer = require('nodemailer');
 const { jsPDF } = require('jspdf');
 
-// Création du transporteur avec meilleure gestion des erreurs
-let transporter;
-try {
-  // Vérification des identifiants
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.error('Configuration email manquante: EMAIL_USER ou EMAIL_PASS non définis');
-    throw new Error('Configuration email manquante');
-  }
-  
-  transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    debug: true, // Active les logs de débogage
-  });
-  
-  // Test de la connexion au serveur SMTP
-  transporter.verify(function(error, success) {
-    if (error) {
-      console.error('Erreur de configuration du transporteur email:', error);
-    } else {
-      console.log('Serveur SMTP prêt à envoyer des emails');
-    }
-  });
-} catch (err) {
-  console.error('Erreur lors de la configuration du transporteur email:', err);
-}
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-const sendTicketEmail = async (booking) => {
-  try {
-    // Double vérification des identifiants
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error('Missing email credentials in sendTicketEmail');
-      throw new Error('Identifiants email manquants');
-    }
-    
-    if (!booking.customerEmail) {
-      console.error('Missing customer email:', booking);
-      throw new Error('Email du client manquant');
-    }
-    
-    // Vérification de la configuration du transporteur
-    if (!transporter) {
-      console.error('Transporter not initialized');
-      throw new Error('Service email non configuré');
-    }
-    
-    console.log(`Sending ticket email to: ${booking.customerEmail}`);
-    
-    // Vérification des données du billet
-    if (!booking.departureDateTime || isNaN(new Date(booking.departureDateTime).getTime())) {
-      console.error('Invalid departureDateTime:', booking.departureDateTime);
-      throw new Error('Date de départ invalide');
-    }
-    
-    if (!booking.ticketNumber || !booking.ticketToken) {
-      console.error('Missing ticketNumber or ticketToken:', booking);
-      throw new Error('Numéro de billet ou token manquant');
-    }
-    
-    const pdfBuffer = generateTicketPDF(booking);
-    
-    const mailOptions = {
-      from: 'Ñu Dem <no-reply@nudem.com>',
-      to: booking.customerEmail,
-      subject: `Votre billet électronique pour ${booking.departure} → ${booking.arrival}`,
-      html: `
-        <h2>Bonjour ${booking.customerName},</h2>
-        <p>Jàmm ak jàmm ! Merci d'avoir réservé avec Ñu Dem ! Votre billet pour votre vol de ${booking.departure} à ${booking.arrival} est en pièce jointe.</p>
-        <p><strong>Numéro de billet :</strong> ${booking.ticketNumber}</p>
-        <p><strong>Date de départ :</strong> ${new Date(booking.departureDateTime).toLocaleString('fr-FR')}</p>
-        <p><strong>Compagnie :</strong> ${booking.airline}</p>
-        <p><strong>Vol :</strong> ${booking.flightNumber}</p>
-        <p><strong>Prix :</strong> ${booking.price} XOF</p>
-        <p>Veuillez présenter ce billet (imprimé ou sur votre téléphone) et une pièce d'identité à l'embarquement.</p>
-        <p>Vous pouvez scanner le QR code sur le billet pour vérifier les détails de votre vol.</p>
-        <p>Ñu Dem vous souhaite un bon voyage !</p>
-        <p>L'équipe Ñu Dem</p>
-      `,
-      attachments: [
-        {
-          filename: `billet-${booking.ticketNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
-        },
-      ],
-    };
-    
-    try {
-      const info = await transporter.sendMail(mailOptions);
-      console.log(`Email sent successfully to ${booking.customerEmail}, messageId: ${info.messageId}`);
-      return info;
-    } catch (err) {
-      console.error('Error during SMTP transaction:', err);
-      throw new Error(`Erreur lors de l'envoi de l'e-mail: ${err.message}`);
-    }
-  } catch (err) {
-    console.error('Error in sendTicketEmail function:', err);
-    throw new Error('Erreur lors de l'envoi de l'e-mail');
-  }
-};
 const generateTicketPDF = (booking) => {
-  if (!booking.departureDateTime || isNaN(new Date(booking.departureDateTime).getTime())) {
-    console.error('Invalid departureDateTime:', booking.departureDateTime);
-    throw new Error('Date de départ invalide');
-  }
-  if (!booking.ticketNumber || !booking.ticketToken) {
-    console.error('Missing ticketNumber or ticketToken:', booking);
-    throw new Error('Numéro de billet ou token manquant');
-  }
   const doc = new jsPDF();
   doc.setFillColor(51, 103, 214);
   doc.rect(0, 0, 210, 30, 'F');
@@ -124,9 +20,82 @@ const generateTicketPDF = (booking) => {
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Passager: ${booking.customerName}`, 20, 50);
-  doc.text(`Vol: ${booking.flightNumber}`, 20, 60);
-  doc.text(`Compagnie: ${booking.airline}`, 20, 70);
-  doc.text(`Départ: ${booking.departure}`, 20, 80);
-  doc.text(`Arrivée: ${booking.arrival}`, 20, 90);
-  doc.text(`Date: ${new Date(booking
+  doc.text(`Passager: ${booking.customerName || 'N/A'}`, 20, 50);
+  doc.text(`Vol: ${booking.flightNumber || 'N/A'}`, 20, 60);
+  doc.text(`Compagnie: ${booking.airline || 'N/A'}`, 20, 70);
+  doc.text(`Départ: ${booking.departure || 'N/A'}`, 20, 80);
+  doc.text(`Arrivée: ${booking.arrival || 'N/A'}`, 20, 90);
+  doc.text(`Date: ${booking.departureDateTime ? new Date(booking.departureDateTime).toLocaleString('fr-FR') : 'N/A'}`, 20, 100);
+  doc.text(`Prix: ${booking.price ? booking.price + ' XOF' : 'N/A'}`, 20, 110);
+  doc.text(`Numéro de billet: ${booking.ticketNumber || 'N/A'}`, 20, 120);
+  doc.text(`QR:${booking.ticketNumber || 'N/A'}:${booking.ticketToken || 'N/A'}`, 160, 115, { align: 'center' });
+  return Buffer.from(doc.output('arraybuffer'));
+};
+
+const sendTicketEmail = async (booking) => {
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error('Identifiants email manquants dans .env');
+    }
+    if (!booking.customerEmail) {
+      throw new Error('Email du client manquant');
+    }
+    console.log(`Envoi email à : ${booking.customerEmail}`);
+    const pdfBuffer = generateTicketPDF(booking);
+    const downloadLink = `http://localhost:5000/api/generate-ticket/${booking._id}`;
+    const mailOptions = {
+      from: 'Ñu Dem <no-reply@nudem.com>',
+      to: booking.customerEmail,
+      subject: `Votre billet pour ${booking.departure || 'N/A'} → ${booking.arrival || 'N/A'}`,
+      html: `
+        <h2>Bonjour ${booking.customerName || 'Client'},</h2>
+        <p>Jàmm ak jàmm ! Votre billet est en pièce jointe.</p>
+        <p><strong>Numéro de billet :</strong> ${booking.ticketNumber || 'N/A'}</p>
+        <p><strong>Date de départ :</strong> ${booking.departureDateTime ? new Date(booking.departureDateTime).toLocaleString('fr-FR') : 'N/A'}</p>
+        <p><strong>Compagnie :</strong> ${booking.airline || 'N/A'}</p>
+        <p><strong>Vol :</strong> ${booking.flightNumber || 'N/A'}</p>
+        <p><strong>Prix :</strong> ${booking.price ? booking.price + ' XOF' : 'N/A'}</p>
+        <p><a href="${downloadLink}">Télécharger votre billet</a></p>
+        <p>Présentez ce billet à l’embarquement.</p>
+        <p>Bon voyage !</p>
+      `,
+      attachments: [
+        {
+          filename: `billet-${booking.ticketNumber || 'inconnu'}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        },
+      ],
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`Email envoyé à ${booking.customerEmail}`);
+  } catch (err) {
+    console.error('Erreur envoi email:', err.message);
+    throw err;
+  }
+};
+
+const sendConfirmationEmail = async (user) => {
+  try {
+    console.log(`Envoi email confirmation à : ${user.email}`);
+    const mailOptions = {
+      from: 'Ñu Dem <no-reply@nudem.com>',
+      to: user.email,
+      subject: 'Bienvenue chez Ñu Dem !',
+      html: `
+        <h2>Bonjour ${user.prenom || 'Client'},</h2>
+        <p>Jàmm ak jàmm ! Votre compte est créé.</p>
+        <p><strong>Email :</strong> ${user.email}</p>
+        <p>Connectez-vous pour réserver vos vols.</p>
+        <p><a href="http://localhost:5173/connexion">Se connecter</a></p>
+      `,
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`Email confirmation envoyé à ${user.email}`);
+  } catch (err) {
+    console.error('Erreur envoi email confirmation:', err.message);
+    throw err;
+  }
+};
+
+module.exports = { sendTicketEmail, sendConfirmationEmail };

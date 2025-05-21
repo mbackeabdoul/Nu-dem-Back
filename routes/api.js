@@ -5,6 +5,7 @@ const User = require('../models/modelUtilisateur');
 const jwt = require('jsonwebtoken');
 const { jsPDF } = require('jspdf');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const { sendTicketEmail } = require('../services/emailService');
 
 const flights = [
@@ -49,22 +50,21 @@ router.post('/bookings', async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.userId;
       } catch (err) {
-        return res.status(401).json({ error: 'Token invalide' });
+        console.error('Erreur vérification token:', err.message);
+        return res.status(401).json({ error: 'Token invalide ou expiré' });
       }
     }
-
+    console.log('Création réservation:', req.body);
     const requiredFields = ['customerName', 'customerEmail', 'customerPhone', 'departure', 'arrival', 'price', 'paymentMethod', 'departureDateTime'];
     for (const field of requiredFields) {
       if (!req.body[field]) {
         return res.status(400).json({ error: `Le champ ${field} est requis` });
       }
     }
-
     const departureDateTime = new Date(req.body.departureDateTime);
     if (isNaN(departureDateTime.getTime())) {
       return res.status(400).json({ error: 'Format de date invalide pour departureDateTime' });
     }
-
     const booking = new Booking({
       ...req.body,
       userId,
@@ -74,20 +74,19 @@ router.post('/bookings', async (req, res) => {
       departureDateTime,
       emailSent: false,
     });
-
     await booking.save();
+    console.log(`Réservation créée: ${booking.ticketNumber}`);
     try {
       await sendTicketEmail(booking);
       booking.emailSent = true;
       await booking.save();
-      console.log(`Booking ${booking.ticketNumber} created and email sent`);
+      console.log(`Email envoyé pour ${booking.ticketNumber}`);
     } catch (emailErr) {
-      console.error('Erreur lors de l’envoi de l’e-mail:', emailErr);
+      console.error('Erreur envoi email pour réservation:', emailErr.message);
     }
-
     res.status(201).json(booking);
   } catch (err) {
-    console.error('Erreur création réservation:', err);
+    console.error('Erreur création réservation:', err.message);
     res.status(400).json({ error: err.message || 'Erreur lors de la création de la réservation' });
   }
 });
@@ -136,34 +135,13 @@ router.get('/generate-ticket/:bookingId', async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.bookingId);
     if (!booking) return res.status(404).json({ error: 'Réservation non trouvée' });
-    if (!booking.emailSent) {
-      console.log(`Ticket download blocked for ${booking.ticketNumber}: email not sent`);
-      return res.status(403).json({ error: 'Billet non disponible, email non envoyé' });
-    }
 
-    const doc = new jsPDF();
-    doc.setFillColor(51, 103, 214);
-    doc.rect(0, 0, 210, 30, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.text('BILLET ÉLECTRONIQUE', 105, 15, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Passager: ${booking.customerName}`, 20, 50);
-    doc.text(`Vol: ${booking.flightNumber}`, 20, 60);
-    doc.text(`Compagnie: ${booking.airline}`, 20, 70);
-    doc.text(`Départ: ${booking.departure}`, 20, 80);
-    doc.text(`Arrivée: ${booking.arrival}`, 20, 90);
-    doc.text(`Date: ${new Date(booking.departureDateTime).toLocaleString('fr-FR')}`, 20, 100);
-    doc.text(`Prix: ${booking.price} XOF`, 20, 110);
-    doc.text(`Numéro de billet: ${booking.ticketNumber}`, 20, 120);
-    doc.text(`QR:${booking.ticketNumber}:${booking.ticketToken}`, 160, 115, { align: 'center' });
+    const { generateTicketPDF } = require('../services/emailService');
+    const pdfBuffer = await generateTicketPDF(booking);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=billet-${booking.ticketNumber}.pdf`);
-    res.send(Buffer.from(doc.output('arraybuffer')));
+    res.send(pdfBuffer);
   } catch (err) {
     console.error('Erreur génération PDF:', err);
     res.status(500).json({ error: 'Erreur lors de la génération du billet' });
@@ -236,6 +214,56 @@ router.post('/payments', async (req, res) => {
   } catch (err) {
     console.error('Erreur paiement:', err);
     res.status(500).json({ error: 'Erreur lors du paiement' });
+  }
+});
+// / Inscription
+// Inscription (/api/auth/inscription)
+router.post('/auth/inscription', async (req, res) => {
+  try {
+    const { prenom, nom, email, motDePasse } = req.body;
+    console.log(`Inscription /auth: ${email}`);
+    if (!prenom || !nom || !email || !motDePasse) {
+      return res.status(400).json({ error: 'Tous les champs sont requis' });
+    }
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email déjà utilisé' });
+    }
+    const hashedPassword = await bcrypt.hash(motDePasse, 10);
+    console.log('Mot de passe hashé:', hashedPassword);
+    const user = new User({ prenom, nom, email, motDePasse: hashedPassword });
+    await user.save();
+    console.log('Utilisateur sauvegardé:', user);
+    await sendConfirmationEmail(user);
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.status(201).json({ message: 'Inscription réussie.', token, user: { prenom, nom, email } });
+  } catch (err) {
+    console.error('Erreur inscription /auth:', err.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Connexion (/api/auth/connexion)
+router.post('/auth/connexion', async (req, res) => {
+  try {
+    const { email, motDePasse } = req.body;
+    console.log(`Connexion /auth: ${email}`);
+    if (!email || !motDePasse) {
+      return res.status(400).json({ error: 'Email et mot de passe requis' });
+    }
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ error: 'Utilisateur non trouvé' });
+    }
+    const match = await bcrypt.compare(motDePasse, user.motDePasse);
+    if (!match) {
+      return res.status(401).json({ error: 'Mot de passe incorrect' });
+    }
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.json({ message: 'Connexion réussie.', token, user: { prenom: user.prenom, nom: user.nom, email } });
+  } catch (err) {
+    console.error('Erreur connexion /auth:', err.message);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
