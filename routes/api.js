@@ -135,13 +135,34 @@ router.get('/generate-ticket/:bookingId', async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.bookingId);
     if (!booking) return res.status(404).json({ error: 'Réservation non trouvée' });
+    if (!booking.emailSent) {
+      console.log(`Ticket download blocked for ${booking.ticketNumber}: email not sent`);
+      return res.status(403).json({ error: 'Billet non disponible, email non envoyé' });
+    }
 
-    const { generateTicketPDF } = require('../services/emailService');
-    const pdfBuffer = await generateTicketPDF(booking);
+    const doc = new jsPDF();
+    doc.setFillColor(51, 103, 214);
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('BILLET ÉLECTRONIQUE', 105, 15, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Passager: ${booking.customerName}`, 20, 50);
+    doc.text(`Vol: ${booking.flightNumber}`, 20, 60);
+    doc.text(`Compagnie: ${booking.airline}`, 20, 70);
+    doc.text(`Départ: ${booking.departure}`, 20, 80);
+    doc.text(`Arrivée: ${booking.arrival}`, 20, 90);
+    doc.text(`Date: ${new Date(booking.departureDateTime).toLocaleString('fr-FR')}`, 20, 100);
+    doc.text(`Prix: ${booking.price} XOF`, 20, 110);
+    doc.text(`Numéro de billet: ${booking.ticketNumber}`, 20, 120);
+    doc.text(`QR:${booking.ticketNumber}:${booking.ticketToken}`, 160, 115, { align: 'center' });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=billet-${booking.ticketNumber}.pdf`);
-    res.send(pdfBuffer);
+    res.send(Buffer.from(doc.output('arraybuffer')));
   } catch (err) {
     console.error('Erreur génération PDF:', err);
     res.status(500).json({ error: 'Erreur lors de la génération du billet' });
