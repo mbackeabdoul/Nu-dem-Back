@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
+const Amadeus = require('amadeus'); // Ajoute cette ligne
 const User = require('../models/modelUtilisateur');
 const jwt = require('jsonwebtoken');
 const { jsPDF } = require('jspdf');
@@ -10,6 +11,7 @@ const axios = require('axios');
 const { sendTicketEmail, sendConfirmationEmail } = require('../services/emailService');
 
 // Gestion du token Amadeus
+// Gestion du token Amadeus (déjà défini)
 let amadeusToken = null;
 let tokenExpiresAt = null;
 
@@ -42,6 +44,46 @@ const getAmadeusToken = async () => {
     throw new Error('Impossible de générer le token Amadeus');
   }
 };
+
+// Route pour autocomplétion des villes
+router.get('/cities', async (req, res) => {
+  try {
+    const { keyword } = req.query;
+    console.log(`Requête /cities:`, { keyword });
+
+    // Validation du mot-clé
+    if (!keyword || keyword.length < 3) {
+      return res.status(400).json({ error: 'Le mot-clé doit contenir au moins 3 caractères' });
+    }
+
+    // Utilise le token généré
+    const token = await getAmadeusToken();
+    const response = await axios.get(
+      `${process.env.AMADEUS_BASE_URL}/v1/reference-data/locations/cities`,
+      {
+        params: {
+          keyword: keyword,
+          max: 10, // Limite le nombre de résultats
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const cities = response.data.data.map(city => ({
+      name: city.name,
+      iataCode: city.iataCode,
+      cityCode: city.iataCode,
+    }));
+
+    console.log('Villes trouvées:', cities);
+    res.json(cities);
+  } catch (error) {
+    console.error('Erreur recherche villes:', error);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.errors?.[0]?.detail || error.message || 'Erreur lors de la recherche des villes',
+    });
+  }
+});
 
 // Route pour rechercher les vols
 router.get('/flights', async (req, res) => {
