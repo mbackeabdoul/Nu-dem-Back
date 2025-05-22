@@ -88,44 +88,34 @@ router.get('/flights', async (req, res) => {
 router.get('/cities', async (req, res) => {
   try {
     const { keyword } = req.query;
-    console.log('Requête /cities:', { keyword });
-    if (!keyword || keyword.length < 2) {
-      console.log('Mot-clé invalide ou trop court');
-      return res.status(400).json({ error: 'Mot-clé requis (minimum 2 caractères)' });
+    console.log(`Requête /cities:`, { keyword });
+
+    // Validation du mot-clé
+    if (!keyword || keyword.length < 3) {
+      return res.status(400).json({ error: 'Le mot-clé doit contenir au moins 3 caractères' });
     }
-    const token = await getAmadeusToken();
-    console.log('Appel API Amadeus /cities avec token:', token.substring(0, 10) + '...');
-    const response = await axios.get(
-      `${process.env.AMADEUS_BASE_URL}/v1/reference-data/locations/cities`,
-      {
-        params: {
-          keyword: keyword.toUpperCase(),
-          max: 20,
-          include: 'AIRPORTS', // Inclure les aéroports pour plus de résultats
-        },
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
-    const cities = response.data.data
-      .filter(city => city.iataCode)
-      .map(city => ({
-        name: city.name,
-        iataCode: city.iataCode,
-        cityCode: city.iataCode,
-      }));
-    console.log('Villes trouvées:', cities);
-    if (cities.length === 0) {
-      console.log('Aucune ville trouvée pour keyword:', keyword);
-    }
-    res.json(cities);
-  } catch (err) {
-    console.error('Erreur recherche villes:', {
-      message: err.message,
-      status: err.response?.status,
-      data: err.response?.data,
-      stack: err.stack,
+
+    // Appel API Amadeus
+    const amadeus = new Amadeus({
+      clientId: process.env.AMADEUS_CLIENT_ID,
+      clientSecret: process.env.AMADEUS_CLIENT_SECRET,
     });
-    res.status(500).json({ error: 'Erreur lors de la recherche de villes', details: err.response?.data || err.message });
+
+    const response = await amadeus.referenceData.locations.cities.get({
+      keyword: keyword,
+    });
+
+    const cities = response.data.map(city => ({
+      name: city.name,
+      iataCode: city.iataCode,
+      cityCode: city.iataCode,
+    }));
+
+    console.log('Villes trouvées:', cities);
+    res.json(cities);
+  } catch (error) {
+    console.error('Erreur recherche villes:', error);
+    res.status(error.status || 500).json({ error: error.message || 'Erreur lors de la recherche des villes' });
   }
 });
 
