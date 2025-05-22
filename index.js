@@ -10,7 +10,11 @@ const cors = require('cors');
 const apiRoutes = require('./routes/api');
 
 const app = express();
-app.use(cors());
+const corsOptions = {
+  origin: 'https:nioudemvoyage.netlify.app', 
+  optionsSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/api', apiRoutes);
 
