@@ -6,41 +6,202 @@ const jwt = require('jsonwebtoken');
 const { jsPDF } = require('jspdf');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
-const { sendTicketEmail } = require('../services/emailService');
+const axios = require('axios');
+const { sendTicketEmail, sendConfirmationEmail } = require('../services/emailService');
 
-const flights = [
-  { id: 1, departure: 'Dakar', arrival: 'Paris', date: '2025-06-01T10:00:00Z', price: 300000, airline: 'Air Senegal', flightNumber: 'SN123' },
-  { id: 2, departure: 'Dakar', arrival: 'New York', date: '2025-06-02T12:00:00Z', price: 500000, airline: 'Air Senegal', flightNumber: 'SN456' },
-];
+// Gestion du token Amadeus
+let amadeusToken = null;
+let tokenExpiresAt = null;
 
-router.get('/flights', (req, res) => {
-  const { departure, arrival, date } = req.query;
-  const filteredFlights = flights.filter(
-    (flight) =>
-      (!departure || flight.departure.toLowerCase().includes(departure.toLowerCase())) &&
-      (!arrival || flight.arrival.toLowerCase().includes(arrival.toLowerCase())) &&
-      (!date || flight.date.startsWith(date))
-  );
-  res.json(filteredFlights.map(flight => ({
-    ...flight,
-    departureDateTime: new Date(flight.date).toISOString(),
-  })));
-});
-
-router.get('/flights/:id', (req, res) => {
-  const flight = flights.find((f) => f.id === parseInt(req.params.id));
-  if (!flight) return res.status(404).json({ error: 'Vol non trouvé' });
-  const departureDateTime = new Date(flight.date);
-  if (isNaN(departureDateTime.getTime())) {
-    console.error('Invalid date in flight:', flight);
-    return res.status(500).json({ error: 'Date de vol invalide' });
+const getAmadeusToken = async () => {
+  if (amadeusToken && tokenExpiresAt > Date.now()) {
+    return amadeusToken;
   }
-  res.json({
-    ...flight,
-    departureDateTime: departureDateTime.toISOString(),
-  });
+  try {
+    const tokenUrl = `${process.env.AMADEUS_BASE_URL}/v1/security/oauth2/token`;
+    console.log('AMADEUS_BASE_URL:', process.env.AMADEUS_BASE_URL);
+    console.log('Token URL:', tokenUrl);
+    if (!process.env.AMADEUS_BASE_URL) {
+      throw new Error('AMADEUS_BASE_URL non défini dans .env');
+    }
+    const response = await axios.post(
+      tokenUrl,
+      new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: process.env.AMADEUS_API_KEY,
+        client_secret: process.env.AMADEUS_API_SECRET,
+      }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    amadeusToken = response.data.access_token;
+    tokenExpiresAt = Date.now() + (response.data.expires_in * 1000 - 60000);
+    console.log('Token Amadeus généré:', amadeusToken.substring(0, 10) + '...');
+    return amadeusToken;
+  } catch (err) {
+    console.error('Erreur génération token Amadeus:', err.message, err.stack);
+    throw new Error('Impossible de générer le token Amadeus');
+  }
+};
+
+// Route pour rechercher les vols
+router.get('/flights', async (req, res) => {
+  try {
+    const { departure, arrival, date, passengers = 1 } = req.query;
+    if (!departure || !arrival || !date) {
+      return res.status(400).json({ error: 'Départ, arrivée et date requis' });
+    }
+    const token = await getAmadeusToken();
+    const response = await axios.get(
+      `${process.env.AMADEUS_BASE_URL}/v2/shopping/flight-offers`,
+      {
+        params: {
+          originLocationCode: departure,
+          destinationLocationCode: arrival,
+          departureDate: date,
+          adults: parseInt(passengers),
+          max: 10,
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    const flights = response.data.data.map(flight => ({
+      id: flight.id,
+      departure: response.data.dictionaries.locations[flight.itineraries[0].segments[0].departure.iataCode].cityCode,
+      arrival: response.data.dictionaries.locations[flight.itineraries[0].segments[flight.itineraries[0].segments.length - 1].arrival.iataCode].cityCode,
+      departureDateTime: flight.itineraries[0].segments[0].departure.at,
+      price: parseFloat(flight.price.grandTotal),
+      currency: flight.price.currency,
+      airline: response.data.dictionaries.carriers[flight.validatingAirlineCodes[0]] || 'Unknown',
+      flightNumber: flight.itineraries[0].segments[0].number,
+      duration: flight.itineraries[0].duration,
+      segments: flight.itineraries[0].segments,
+    }));
+    console.log(`Vols trouvés: ${flights.length}`);
+    res.json(flights);
+  } catch (err) {
+    console.error('Erreur recherche vols:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Erreur lors de la recherche de vols' });
+  }
 });
 
+// Route pour autocomplétion des villes
+router.get('/cities', async (req, res) => {
+  try {
+    const { keyword } = req.query;
+    console.log('Requête /cities:', { keyword });
+    if (!keyword || keyword.length < 2) {
+      console.log('Mot-clé invalide ou trop court');
+      return res.status(400).json({ error: 'Mot-clé requis (minimum 2 caractères)' });
+    }
+    const token = await getAmadeusToken();
+    console.log('Appel API Amadeus /cities avec token:', token.substring(0, 10) + '...');
+    const response = await axios.get(
+      `${process.env.AMADEUS_BASE_URL}/v1/reference-data/locations/cities`,
+      {
+        params: {
+          keyword: keyword.toUpperCase(),
+          max: 20,
+          include: 'AIRPORTS', // Inclure les aéroports pour plus de résultats
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    const cities = response.data.data
+      .filter(city => city.iataCode)
+      .map(city => ({
+        name: city.name,
+        iataCode: city.iataCode,
+        cityCode: city.iataCode,
+      }));
+    console.log('Villes trouvées:', cities);
+    if (cities.length === 0) {
+      console.log('Aucune ville trouvée pour keyword:', keyword);
+    }
+    res.json(cities);
+  } catch (err) {
+    console.error('Erreur recherche villes:', {
+      message: err.message,
+      status: err.response?.status,
+      data: err.response?.data,
+      stack: err.stack,
+    });
+    res.status(500).json({ error: 'Erreur lors de la recherche de villes', details: err.response?.data || err.message });
+  }
+});
+
+// Route pour un vol spécifique
+router.get('/flights', async (req, res) => {
+  try {
+    const { departure, arrival, date, passengers = 1 } = req.query;
+    console.log('Requête /flights:', { departure, arrival, date, passengers });
+    if (!departure || !arrival || !date) {
+      return res.status(400).json({ error: 'Départ, arrivée et date requis' });
+    }
+    const iataCodeRegex = /^[A-Z]{3}$/;
+    if (!iataCodeRegex.test(departure) || !iataCodeRegex.test(arrival)) {
+      return res.status(400).json({ error: 'Codes IATA invalides' });
+    }
+    const token = await getAmadeusToken();
+    const response = await axios.get(
+      `${process.env.AMADEUS_BASE_URL}/v2/shopping/flight-offers`,
+      {
+        params: {
+          originLocationCode: departure,
+          destinationLocationCode: arrival,
+          departureDate: date,
+          adults: parseInt(passengers),
+          max: 10,
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    const flights = response.data.data.map(flight => {
+      const lastSegment = flight.itineraries[0].segments[flight.itineraries[0].segments.length - 1];
+      console.log('Données du vol:', {
+        id: flight.id,
+        departure: flight.itineraries[0].segments[0].departure.iataCode,
+        arrival: lastSegment.arrival.iataCode,
+        departureDateTime: flight.itineraries[0].segments[0].departure.at,
+        arrivalDateTime: lastSegment.arrival.at,
+      });
+      return {
+        id: flight.id,
+        departure: flight.itineraries[0].segments[0].departure.iataCode,
+        departureName: response.data.dictionaries.locations[flight.itineraries[0].segments[0].departure.iataCode]?.cityName || 'Unknown',
+        arrival: lastSegment.arrival.iataCode,
+        arrivalName: response.data.dictionaries.locations[lastSegment.arrival.iataCode]?.cityName || 'Unknown',
+        departureDateTime: flight.itineraries[0].segments[0].departure.at,
+        arrivalDateTime: lastSegment.arrival.at,
+        price: parseFloat(flight.price.grandTotal),
+        currency: flight.price.currency,
+        airline: response.data.dictionaries.carriers[flight.validatingAirlineCodes[0]] || 'Unknown',
+        flightNumber: flight.itineraries[0].segments[0].number,
+        duration: flight.itineraries[0].duration,
+        segments: flight.itineraries[0].segments.map(segment => ({
+          departure: segment.departure.iataCode,
+          arrival: segment.arrival.iataCode,
+          departureTime: segment.departure.at,
+          arrivalTime: segment.arrival.at,
+          flightNumber: segment.number,
+          airline: segment.carrierCode,
+        })),
+        isDirect: flight.itineraries[0].segments.length === 1,
+        remainingSeats: flight.numberOfBookableSeats || 'Unknown',
+      };
+    });
+    console.log(`Vols trouvés: ${flights.length}`);
+    res.json(flights);
+  } catch (err) {
+    console.error('Erreur recherche vols:', {
+      message: err.message,
+      status: err.response?.status,
+      data: err.response?.data,
+    });
+    res.status(500).json({ error: 'Erreur lors de la recherche de vols', details: err.response?.data || err.message });
+  }
+});
+
+// Routes existantes (réservations, auth, etc.)
 router.post('/bookings', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -55,23 +216,25 @@ router.post('/bookings', async (req, res) => {
       }
     }
     console.log('Création réservation:', req.body);
-    const requiredFields = ['customerName', 'customerEmail', 'customerPhone', 'departure', 'arrival', 'price', 'paymentMethod', 'departureDateTime'];
+    const requiredFields = ['customerName', 'customerEmail', 'customerPhone', 'departure', 'arrival', 'price', 'paymentMethod', 'departureDateTime', 'seat', 'checkInTime'];
     for (const field of requiredFields) {
       if (!req.body[field]) {
         return res.status(400).json({ error: `Le champ ${field} est requis` });
       }
     }
     const departureDateTime = new Date(req.body.departureDateTime);
-    if (isNaN(departureDateTime.getTime())) {
-      return res.status(400).json({ error: 'Format de date invalide pour departureDateTime' });
+    const checkInTime = new Date(req.body.checkInTime);
+    if (isNaN(departureDateTime.getTime()) || isNaN(checkInTime.getTime())) {
+      return res.status(400).json({ error: 'Format de date invalide' });
     }
     const booking = new Booking({
       ...req.body,
       userId,
       ticketNumber: `TKT-${Date.now()}`,
-      ticketToken: crypto.randomBytes(16).toString('hex'),
+      ticketToken: crypto.randomBytes(16).toString('hex'), // Généré côté serveur
       paymentStatus: 'pending',
       departureDateTime,
+      checkInTime,
       emailSent: false,
     });
     await booking.save();
@@ -90,7 +253,6 @@ router.post('/bookings', async (req, res) => {
     res.status(400).json({ error: err.message || 'Erreur lors de la création de la réservation' });
   }
 });
-
 router.get('/bookings', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -135,34 +297,11 @@ router.get('/generate-ticket/:bookingId', async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.bookingId);
     if (!booking) return res.status(404).json({ error: 'Réservation non trouvée' });
-    if (!booking.emailSent) {
-      console.log(`Ticket download blocked for ${booking.ticketNumber}: email not sent`);
-      return res.status(403).json({ error: 'Billet non disponible, email non envoyé' });
-    }
-
-    const doc = new jsPDF();
-    doc.setFillColor(51, 103, 214);
-    doc.rect(0, 0, 210, 30, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.text('BILLET ÉLECTRONIQUE', 105, 15, { align: 'center' });
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Passager: ${booking.customerName}`, 20, 50);
-    doc.text(`Vol: ${booking.flightNumber}`, 20, 60);
-    doc.text(`Compagnie: ${booking.airline}`, 20, 70);
-    doc.text(`Départ: ${booking.departure}`, 20, 80);
-    doc.text(`Arrivée: ${booking.arrival}`, 20, 90);
-    doc.text(`Date: ${new Date(booking.departureDateTime).toLocaleString('fr-FR')}`, 20, 100);
-    doc.text(`Prix: ${booking.price} XOF`, 20, 110);
-    doc.text(`Numéro de billet: ${booking.ticketNumber}`, 20, 120);
-    doc.text(`QR:${booking.ticketNumber}:${booking.ticketToken}`, 160, 115, { align: 'center' });
-
+    const { generateTicketPDF } = require('../services/emailService');
+    const pdfBuffer = await generateTicketPDF(booking);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=billet-${booking.ticketNumber}.pdf`);
-    res.send(Buffer.from(doc.output('arraybuffer')));
+    res.send(pdfBuffer);
   } catch (err) {
     console.error('Erreur génération PDF:', err);
     res.status(500).json({ error: 'Erreur lors de la génération du billet' });
@@ -237,8 +376,7 @@ router.post('/payments', async (req, res) => {
     res.status(500).json({ error: 'Erreur lors du paiement' });
   }
 });
-// / Inscription
-// Inscription (/api/auth/inscription)
+
 router.post('/auth/inscription', async (req, res) => {
   try {
     const { prenom, nom, email, motDePasse } = req.body;
@@ -264,7 +402,6 @@ router.post('/auth/inscription', async (req, res) => {
   }
 });
 
-// Connexion (/api/auth/connexion)
 router.post('/auth/connexion', async (req, res) => {
   try {
     const { email, motDePasse } = req.body;
