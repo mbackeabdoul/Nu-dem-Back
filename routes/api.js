@@ -456,5 +456,4 @@ router.post('/auth/connexion', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
-
 module.exports = router;
