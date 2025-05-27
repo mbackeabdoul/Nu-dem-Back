@@ -98,16 +98,17 @@ const generateTicketPDF = async (booking) => {
     const accentColor = [231, 76, 60]; // Rouge
     const lightGray = [236, 240, 241];
 
-    // En-tête
+    // En-tête - AMÉLIORATION: Ajout d'espacement et réduction taille logo
     doc.setFillColor(...primaryColor);
-    doc.rect(0, 0, 210, 40, 'F');
+    doc.rect(0, 0, 210, 35, 'F'); // Réduction hauteur header de 40 à 35
 
-    // Logo - VERSION CORRIGÉE
+    // Logo - AMÉLIORATION: Taille réduite et repositionnement
     const logoBase64 = await getLogoBase64();
     if (logoBase64) {
       try {
         console.log('Ajout du logo au PDF...');
-        doc.addImage(logoBase64, 'PNG', 15, 8, 25, 25);
+        // CHANGEMENT: Logo plus petit (20x20 au lieu de 25x25) et repositionné
+        doc.addImage(logoBase64, 'PNG', 15, 7.5, 20, 20);
         console.log('Logo ajouté avec succès au PDF');
       } catch (logoError) {
         console.error('Erreur lors de l\'ajout du logo au PDF:', logoError);
@@ -117,155 +118,169 @@ const generateTicketPDF = async (booking) => {
       console.log('Pas de logo disponible pour le PDF');
     }
 
-    // Titre
+    // Titre - AMÉLIORATION: Repositionnement pour meilleur espacement
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
+    doc.setFontSize(22); // Légèrement réduit de 24 à 22
     doc.setFont('helvetica', 'bold');
-    doc.text('BILLET ÉLECTRONIQUE', 50, 20);
-    doc.setFontSize(12);
+    doc.text('BILLET ÉLECTRONIQUE', 45, 18); // Ajusté verticalement
+    doc.setFontSize(11); // Réduit de 12 à 11
     doc.setFont('helvetica', 'normal');
-    doc.text(`N° ${booking.ticketNumber}`, 50, 30);
+    doc.text(`N° ${booking.ticketNumber}`, 45, 26); // Ajusté verticalement
 
-    // Informations passager
+    // AMÉLIORATION: Espacement plus cohérent entre les sections
+    let currentY = 50; // CORRECTION: Position Y de départ plus espacée
+
+    // Informations passager - AMÉLIORATION: Meilleur espacement
     doc.setFillColor(...lightGray);
-    doc.rect(15, 50, 180, 25, 'F');
+    doc.rect(15, currentY, 180, 22, 'F'); // Réduction hauteur de 25 à 22
     doc.setTextColor(...secondaryColor);
-    doc.setFontSize(14);
+    doc.setFontSize(13); // Réduit de 14 à 13
     doc.setFont('helvetica', 'bold');
-    doc.text('INFORMATIONS PASSAGER', 20, 60);
-    doc.setFontSize(11);
+    doc.text('INFORMATIONS PASSAGER', 20, currentY + 8);
+    doc.setFontSize(10); // Réduit de 11 à 10
     doc.setFont('helvetica', 'normal');
-    doc.text(`Nom: ${booking.customerName || 'N/A'}`, 20, 68);
-    doc.text(`Email: ${booking.customerEmail || 'N/A'}`, 20, 74);
-    doc.text(`Téléphone: ${booking.customerPhone || 'N/A'}`, 120, 68);
-    doc.text(`Siège: ${booking.seat || 'Non assigné'}`, 120, 74);
+    doc.text(`Nom: ${booking.customerName || 'N/A'}`, 20, currentY + 14);
+    doc.text(`Email: ${booking.customerEmail || 'N/A'}`, 20, currentY + 18);
+    doc.text(`Téléphone: ${booking.customerPhone || 'N/A'}`, 115, currentY + 14); // Ajusté position
+    doc.text(`Siège: ${booking.seat || 'Non assigné'}`, 115, currentY + 18); // Ajusté position
 
-    // Détails du vol
+    currentY += 35; // CORRECTION: Espacement augmenté entre sections principales
+
+    // Détails du vol - AMÉLIORATION: Header plus compact
     doc.setFillColor(...primaryColor);
-    doc.rect(15, 85, 180, 8, 'F');
+    doc.rect(15, currentY, 180, 7, 'F'); // Réduction hauteur de 8 à 7
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
+    doc.setFontSize(13); // Réduit de 14 à 13
     doc.setFont('helvetica', 'bold');
-    doc.text('DÉTAILS DU VOL', 20, 91);
+    doc.text('DÉTAILS DU VOL', 20, currentY + 5);
+
+    currentY += 15; // CORRECTION: Espacement augmenté après le header
 
     doc.setTextColor(...secondaryColor);
-    doc.setFontSize(12);
+    doc.setFontSize(11); // Réduit de 12 à 11
     doc.setFont('helvetica', 'normal');
     const ticketType = booking.returnDepartureDateTime ? 'Aller-Retour' : 'Aller Simple';
-    doc.text(`Type de billet: ${ticketType}`, 20, 100);
+    doc.text(`Type de billet: ${ticketType}`, 20, currentY);
 
+    currentY += 12; // CORRECTION: Espacement approprié avant les infos vol
 
-    // Départ et arrivée
+    // Départ et arrivée - CORRECTION: Suppression point d'exclamation et meilleur espacement
     doc.setTextColor(...secondaryColor);
-    doc.setFontSize(16);
+    doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
-    doc.text(booking.departure || 'N/A', 25, 110);
-    doc.text('→', 95, 115);
-    doc.text(booking.arrival || 'N/A', 130, 110);
-    doc.setFontSize(10);
+    doc.text(booking.departure || 'N/A', 25, currentY + 12);
+    doc.text('→', 95, currentY + 12); // CORRECTION: Suppression du décalage vertical
+    doc.text(booking.arrival || 'N/A', 130, currentY + 12);
+    
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text('DÉPART', 25, 105);
-    doc.text(formatDate(booking.departureDateTime), 25, 118);
-    doc.text(formatTime(booking.departureDateTime), 25, 124);
-    doc.text('ARRIVÉE', 130, 105);
+    doc.text('DÉPART', 25, currentY + 6);
+    doc.text(formatDate(booking.departureDateTime), 25, currentY + 18);
+    doc.text(formatTime(booking.departureDateTime), 25, currentY + 22);
+    doc.text('ARRIVÉE', 130, currentY + 6);
     if (booking.arrivalDateTime && booking.arrivalDateTime !== 'Non spécifié') {
-      doc.text(formatDate(booking.arrivalDateTime), 130, 118);
-      doc.text(formatTime(booking.arrivalDateTime), 130, 124);
+      doc.text(formatDate(booking.arrivalDateTime), 130, currentY + 18);
+      doc.text(formatTime(booking.arrivalDateTime), 130, currentY + 22);
     }
 
-    
+    currentY += 32; // CORRECTION: Espacement augmenté pour éviter les chevauchements
 
-    // retour et arrivée retour
-
-    let yPosition = 135;
+    // Retour et arrivée retour - CORRECTION: Alignement identique au vol aller
     if (booking.returnDepartureDateTime) {
       doc.setTextColor(...secondaryColor);
-      doc.setFontSize(16);
+      doc.setFontSize(15);
       doc.setFont('helvetica', 'bold');
-      doc.text(booking.returnDeparture || booking.arrival, 25, yPosition);
-      doc.text('→', 95, yPosition + 5);
-      doc.text(booking.returnArrival || booking.departure, 130, yPosition);
-      doc.setFontSize(10);
+      doc.text(booking.returnDeparture || booking.arrival, 25, currentY + 12);
+      doc.text('→', 95, currentY + 12); // CORRECTION: Même alignement que l'aller
+      doc.text(booking.returnArrival || booking.departure, 130, currentY + 12);
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text('DÉPART RETOUR', 25, yPosition - 5);
-      doc.text(formatDate(booking.returnDepartureDateTime), 25, yPosition + 8);
-      doc.text(formatTime(booking.returnDepartureDateTime), 25, yPosition + 14);
-      doc.text('ARRIVÉE RETOUR', 130, yPosition - 5);
+      doc.text('DÉPART RETOUR', 25, currentY + 6);
+      doc.text(formatDate(booking.returnDepartureDateTime), 25, currentY + 18);
+      doc.text(formatTime(booking.returnDepartureDateTime), 25, currentY + 22);
+      doc.text('ARRIVÉE RETOUR', 130, currentY + 6);
       if (booking.returnArrivalDateTime && booking.returnArrivalDateTime !== 'Non spécifié') {
-        doc.text(formatDate(booking.returnArrivalDateTime), 130, yPosition + 8);
-        doc.text(formatTime(booking.returnArrivalDateTime), 130, yPosition + 14);
+        doc.text(formatDate(booking.returnArrivalDateTime), 130, currentY + 18);
+        doc.text(formatTime(booking.returnArrivalDateTime), 130, currentY + 22);
       }
-      yPosition += 30;
+      currentY += 32; // CORRECTION: Espacement identique
     }
-  
 
-
-    // Vol et compagnie
+    // Vol et compagnie + Prix - AMÉLIORATION: Hauteur réduite et meilleur espacement
+    const boxHeight = 22; // Réduction de 25 à 22
+    
     doc.setFillColor(245, 245, 245);
-    doc.rect(15, 135, 85, 25, 'F');
+    doc.rect(15, currentY, 85, boxHeight, 'F');
     doc.setTextColor(...secondaryColor);
-    doc.setFontSize(12);
+    doc.setFontSize(11); // Réduit de 12 à 11
     doc.setFont('helvetica', 'bold');
-    doc.text('VOL', 20, 145);
-    doc.setFontSize(14);
-    doc.text(booking.flightNumber || 'N/A', 20, 152);
-    doc.setFontSize(10);
+    doc.text('VOL', 20, currentY + 8);
+    doc.setFontSize(13); // Réduit de 14 à 13
+    doc.text(booking.flightNumber || 'N/A', 20, currentY + 14);
+    doc.setFontSize(9); // Réduit de 10 à 9
     doc.setFont('helvetica', 'normal');
-    doc.text(`Compagnie: ${booking.airline || 'N/A'}`, 20, 158);
+    doc.text(`Compagnie: ${booking.airline || 'N/A'}`, 20, currentY + 18);
 
     // Prix
     doc.setFillColor(...accentColor);
-    doc.rect(110, 135, 85, 25, 'F');
+    doc.rect(110, currentY, 85, boxHeight, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(12);
+    doc.setFontSize(11); // Réduit de 12 à 11
     doc.setFont('helvetica', 'bold');
-    doc.text('PRIX TOTAL', 115, 145);
-    doc.setFontSize(16);
-    doc.text(`${booking.price || 0} ${booking.currency || 'EUR'}`, 115, 155);
+    doc.text('PRIX TOTAL', 115, currentY + 8);
+    doc.setFontSize(15); // Réduit de 16 à 15
+    doc.text(`${booking.price || 0} ${booking.currency || 'EUR'}`, 115, currentY + 16);
 
-    // QR Code (format compatible avec l'ancienne version)
-    const qrData = `QR:${booking.ticketNumber}:${booking.ticketToken}`; // Format attendu pour /verify-ticket
+    currentY += boxHeight + 12; // CORRECTION: Espacement augmenté après les boîtes vol/prix
+
+    // QR Code - AMÉLIORATION: Repositionnement et taille optimisée
+    const qrData = `QR:${booking.ticketNumber}:${booking.ticketToken}`;
     const qrCodeDataURL = await generateQRCode(qrData);
     if (qrCodeDataURL) {
-      doc.addImage(qrCodeDataURL, 'PNG', 15, 170, 40, 40);
+      doc.addImage(qrCodeDataURL, 'PNG', 15, currentY, 35, 35); // Légèrement réduit de 40x40 à 35x35
       doc.setTextColor(...secondaryColor);
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text('Scannez ce code pour', 15, 218);
-      doc.text('vérification', 15, 224);
+      doc.text('Scannez ce code pour', 15, currentY + 40);
+      doc.text('vérification', 15, currentY + 44);
     }
 
-    // Informations importantes
+    // Informations importantes - AMÉLIORATION: Taille et espacement optimisés
+    const infoBoxHeight = 35; // Réduction de 40 à 35
     doc.setFillColor(255, 243, 205);
-    doc.rect(65, 170, 130, 40, 'F');
+    doc.rect(60, currentY, 135, infoBoxHeight, 'F'); // Largeur ajustée
     doc.setTextColor(...secondaryColor);
-    doc.setFontSize(11);
+    doc.setFontSize(10); // Réduit de 11 à 10
     doc.setFont('helvetica', 'bold');
-    doc.text('INFORMATIONS IMPORTANTES', 70, 180);
-    doc.setFontSize(9);
+    doc.text('INFORMATIONS IMPORTANTES', 65, currentY + 8);
+    doc.setFontSize(8); // Réduit de 9 à 8
     doc.setFont('helvetica', 'normal');
-    doc.text('• Présentez-vous 2h avant le départ', 70, 188);
-    doc.text('• Pièce d\'identité valide requise', 70, 194);
-    doc.text('• Enregistrement en ligne recommandé', 70, 200);
-    doc.text(`Enregistrement: ${formatTime(booking.checkInTime) || 'N/A'}`, 70, 206);
+    doc.text('• Présentez-vous 2h avant le départ', 65, currentY + 14);
+    doc.text('• Pièce d\'identité valide requise', 65, currentY + 18);
+    doc.text('• Enregistrement en ligne recommandé', 65, currentY + 22);
+    doc.text(`Enregistrement: ${formatTime(booking.checkInTime) || 'N/A'}`, 65, currentY + 26);
 
-    // Statut du paiement
+    currentY += infoBoxHeight + 5; // AMÉLIORATION: Espacement réduit
+
+    // Statut du paiement - AMÉLIORATION: Hauteur réduite
     const paymentColor = booking.paymentStatus === 'completed' ? [46, 204, 113] : [241, 196, 15];
     doc.setFillColor(...paymentColor);
-    doc.rect(15, 220, 180, 15, 'F');
+    doc.rect(15, currentY, 180, 12, 'F'); // Réduction de 15 à 12
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(12);
+    doc.setFontSize(11); // Réduit de 12 à 11
     doc.setFont('helvetica', 'bold');
     const statusText = booking.paymentStatus === 'completed' ? 'PAIEMENT CONFIRMÉ' : 'PAIEMENT EN ATTENTE';
-    doc.text(statusText, 20, 230);
+    doc.text(statusText, 20, currentY + 8);
 
-    // Pied de page
+    currentY += 17; // AMÉLIORATION: Espacement ajusté
+
+    // Pied de page - AMÉLIORATION: Espacement compact
     doc.setTextColor(150, 150, 150);
-    doc.setFontSize(8);
+    doc.setFontSize(7); // Réduit de 8 à 7
     doc.setFont('helvetica', 'normal');
-    doc.text('Valable uniquement pour le vol mentionné.', 15, 250);
-    doc.text('Conservez ce document jusqu\'à destination.', 15, 255);
-    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 15, 265);
+    doc.text('Valable uniquement pour le vol mentionné.', 15, currentY);
+    doc.text('Conservez ce document jusqu\'à destination.', 15, currentY + 4);
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 15, currentY + 8);
 
     return Buffer.from(doc.output('arraybuffer'));
   } catch (error) {
@@ -300,28 +315,12 @@ const sendTicketEmail = async (booking) => {
   try {
     const pdfBuffer = await generateTicketPDF(booking);
     
-    // Chercher le logo pour l'email avec les mêmes chemins que le PDF
-    const possibleLogoPaths = [
-      path.join(__dirname, '../images/logo.png'),
-      path.join(__dirname, '../public/images/logo.png'),
-      path.join(__dirname, 'images/logo.png'),
-      path.join(process.cwd(), 'images/logo.png'),
-      path.join(process.cwd(), 'public/images/logo.png')
-    ];
-
-    let logoPath = null;
-    for (const testPath of possibleLogoPaths) {
-      try {
-        await fs.access(testPath);
-        logoPath = testPath;
-        break;
-      } catch (error) {
-        continue;
-      }
-    }
+    // CHANGEMENT: Suppression de la recherche du logo pour l'email
+    // Le logo ne sera plus ajouté en pièce jointe séparée
+    
     const isRoundTrip = booking.returnDepartureDateTime;
 
-    const downloadLink = `http://localhost:5000/api/generate-ticket/${booking._id}`;
+    const downloadLink = `https://nu-dem-back.onrender.com/api/generate-ticket/${booking._id}`;
     const mailOptions = {
       from: 'Ñu Dem <no-reply@nudem.com>',
       to: booking.customerEmail,
@@ -338,7 +337,6 @@ const sendTicketEmail = async (booking) => {
         
         <p><strong>Compagnie :</strong> ${booking.airline || 'N/A'}</p>
 
-
         <p><strong>Vol :</strong> ${booking.flightNumber || 'N/A'}</p>
         <p><strong>Prix :</strong> ${booking.price || 0} ${booking.currency || 'EUR'}</p>
         <p><a href="${downloadLink}">Télécharger votre billet</a></p>
@@ -352,18 +350,8 @@ const sendTicketEmail = async (booking) => {
           contentType: 'application/pdf',
         },
       ],
+      // CHANGEMENT: Suppression complète de l'ajout du logo en pièce jointe
     };
-
-    if (logoPath) {
-      mailOptions.attachments.push({
-        filename: 'logo.png',
-        path: logoPath,
-        cid: 'logo',
-      });
-      console.log(`Logo ajouté à l'email depuis: ${logoPath}`);
-    } else {
-      console.log('Logo non trouvé pour l\'email, envoyé sans logo');
-    }
 
     const result = await transporter.sendMail(mailOptions);
     console.log('Email de billet envoyé:', result.messageId);
@@ -376,43 +364,16 @@ const sendTicketEmail = async (booking) => {
 
 const sendConfirmationEmail = async (user) => {
   try {
-    // Chercher le logo avec les mêmes chemins
-    const possibleLogoPaths = [
-      path.join(__dirname, '../images/logo.png'),
-      path.join(__dirname, '../public/images/logo.png'),
-      path.join(__dirname, 'images/logo.png'),
-      path.join(process.cwd(), 'images/logo.png'),
-      path.join(process.cwd(), 'public/images/logo.png')
-    ];
-
-    let logoPath = null;
-    for (const testPath of possibleLogoPaths) {
-      try {
-        await fs.access(testPath);
-        logoPath = testPath;
-        break;
-      } catch (error) {
-        continue;
-      }
-    }
-
+    // CHANGEMENT: Suppression de la recherche du logo pour l'email de confirmation
+    // Le logo ne sera plus ajouté en pièce jointe séparée
+    
     const mailOptions = {
       from: 'Ñu Dem <no-reply@nudem.com>',
       to: user.email,
       subject: 'Bienvenue chez Ñu Dem !',
       html: getEmailTemplate(user, true),
+      // CHANGEMENT: Suppression complète de l'ajout du logo en pièce jointe
     };
-
-    if (logoPath) {
-      mailOptions.attachments = [{
-        filename: 'logo.png',
-        path: logoPath,
-        cid: 'logo',
-      }];
-      console.log(`Logo ajouté à l'email de confirmation depuis: ${logoPath}`);
-    } else {
-      console.log('Logo non trouvé pour l\'email de confirmation, envoyé sans logo');
-    }
 
     const result = await transporter.sendMail(mailOptions);
     console.log('Email de confirmation envoyé:', result.messageId);
