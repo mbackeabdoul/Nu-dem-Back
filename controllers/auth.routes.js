@@ -19,7 +19,7 @@ router.post('/inscription', async (req, res) => {
 });
 
 router.post('/connexion', auth.connexion);
-router.post('/forgot-password', reset.forgotPassword);
+
 router.post('/reset-password', reset.resetPassword);
 
 module.exports = router;
