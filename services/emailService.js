@@ -148,6 +148,13 @@ const generateTicketPDF = async (booking) => {
     doc.setFont('helvetica', 'bold');
     doc.text('DÉTAILS DU VOL', 20, 91);
 
+    doc.setTextColor(...secondaryColor);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    const ticketType = booking.returnDepartureDateTime ? 'Aller-Retour' : 'Aller Simple';
+    doc.text(`Type de billet: ${ticketType}`, 20, 100);
+
+
     // Départ et arrivée
     doc.setTextColor(...secondaryColor);
     doc.setFontSize(16);
@@ -165,6 +172,33 @@ const generateTicketPDF = async (booking) => {
       doc.text(formatDate(booking.arrivalDateTime), 130, 118);
       doc.text(formatTime(booking.arrivalDateTime), 130, 124);
     }
+
+    
+
+    // retour et arrivée retour
+
+    let yPosition = 135;
+    if (booking.returnDepartureDateTime) {
+      doc.setTextColor(...secondaryColor);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(booking.returnDeparture || booking.arrival, 25, yPosition);
+      doc.text('→', 95, yPosition + 5);
+      doc.text(booking.returnArrival || booking.departure, 130, yPosition);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('DÉPART RETOUR', 25, yPosition - 5);
+      doc.text(formatDate(booking.returnDepartureDateTime), 25, yPosition + 8);
+      doc.text(formatTime(booking.returnDepartureDateTime), 25, yPosition + 14);
+      doc.text('ARRIVÉE RETOUR', 130, yPosition - 5);
+      if (booking.returnArrivalDateTime && booking.returnArrivalDateTime !== 'Non spécifié') {
+        doc.text(formatDate(booking.returnArrivalDateTime), 130, yPosition + 8);
+        doc.text(formatTime(booking.returnArrivalDateTime), 130, yPosition + 14);
+      }
+      yPosition += 30;
+    }
+  
+
 
     // Vol et compagnie
     doc.setFillColor(245, 245, 245);
@@ -285,6 +319,7 @@ const sendTicketEmail = async (booking) => {
         continue;
       }
     }
+    const isRoundTrip = booking.returnDepartureDateTime;
 
     const downloadLink = `http://localhost:5000/api/generate-ticket/${booking._id}`;
     const mailOptions = {
@@ -294,9 +329,16 @@ const sendTicketEmail = async (booking) => {
       html: `
         <h2>Bonjour ${booking.customerName || 'Client'},</h2>
         <p>Dallal ak jàmm ! Votre billet est en pièce jointe.</p>
+          <p><strong>Type:</strong> ${isRoundTrip ? 'Aller-Retour' : 'Aller Simple'}</p>
         <p><strong>Numéro de billet :</strong> ${booking.ticketNumber || 'N/A'}</p>
+
         <p><strong>Date de départ :</strong> ${booking.departureDateTime ? new Date(booking.departureDateTime).toLocaleString('fr-FR') : 'N/A'}</p>
+
+        ${isRoundTrip ? `<p><strong>Date de retour :</strong> ${booking.returnDepartureDateTime ? new Date(booking.returnDepartureDateTime).toLocaleString('fr-FR') : 'N/A'}</p>` : ''}
+        
         <p><strong>Compagnie :</strong> ${booking.airline || 'N/A'}</p>
+
+
         <p><strong>Vol :</strong> ${booking.flightNumber || 'N/A'}</p>
         <p><strong>Prix :</strong> ${booking.price || 0} ${booking.currency || 'EUR'}</p>
         <p><a href="${downloadLink}">Télécharger votre billet</a></p>
