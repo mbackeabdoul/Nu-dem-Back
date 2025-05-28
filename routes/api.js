@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
 const { sendTicketEmail, sendConfirmationEmail } = require('../services/emailService');
+const {forgotPassword, resetPassword} = require('../controllers/auth.controller'); // Assurez-vous que le chemin est correct
 
 // Gestion du token Amadeus
 // Gestion du token Amadeus (déjà défini)
@@ -561,5 +562,9 @@ router.post('/auth/connexion', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+
+router.post('/forgot-password' , forgotPassword); 
+router.post('/reset-password' , resetPassword); 
+
 
 module.exports = router;
