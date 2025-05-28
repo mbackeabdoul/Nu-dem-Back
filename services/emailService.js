@@ -128,7 +128,7 @@ const generateTicketPDF = async (booking) => {
     doc.text(`N° ${booking.ticketNumber}`, 45, 26); // Ajusté verticalement
 
     // AMÉLIORATION: Espacement plus cohérent entre les sections
-    let currentY = 50; // CORRECTION: Position Y de départ plus espacée
+    let currentY = 45; // Position Y de départ
 
     // Informations passager - AMÉLIORATION: Meilleur espacement
     doc.setFillColor(...lightGray);
@@ -144,7 +144,7 @@ const generateTicketPDF = async (booking) => {
     doc.text(`Téléphone: ${booking.customerPhone || 'N/A'}`, 115, currentY + 14); // Ajusté position
     doc.text(`Siège: ${booking.seat || 'Non assigné'}`, 115, currentY + 18); // Ajusté position
 
-    currentY += 35; // CORRECTION: Espacement augmenté entre sections principales
+    currentY += 30; // AMÉLIORATION: Espacement uniforme
 
     // Détails du vol - AMÉLIORATION: Header plus compact
     doc.setFillColor(...primaryColor);
@@ -154,7 +154,7 @@ const generateTicketPDF = async (booking) => {
     doc.setFont('helvetica', 'bold');
     doc.text('DÉTAILS DU VOL', 20, currentY + 5);
 
-    currentY += 15; // CORRECTION: Espacement augmenté après le header
+    currentY += 12; // AMÉLIORATION: Espacement réduit
 
     doc.setTextColor(...secondaryColor);
     doc.setFontSize(11); // Réduit de 12 à 11
@@ -162,48 +162,48 @@ const generateTicketPDF = async (booking) => {
     const ticketType = booking.returnDepartureDateTime ? 'Aller-Retour' : 'Aller Simple';
     doc.text(`Type de billet: ${ticketType}`, 20, currentY);
 
-    currentY += 12; // CORRECTION: Espacement approprié avant les infos vol
+    currentY += 8; // AMÉLIORATION: Espacement plus petit
 
-    // Départ et arrivée - CORRECTION: Suppression point d'exclamation et meilleur espacement
+    // Départ et arrivée - AMÉLIORATION: Meilleur espacement et alignement
     doc.setTextColor(...secondaryColor);
-    doc.setFontSize(15);
+    doc.setFontSize(15); // Réduit de 16 à 15
     doc.setFont('helvetica', 'bold');
-    doc.text(booking.departure || 'N/A', 25, currentY + 12);
-    doc.text('→', 95, currentY + 12); // CORRECTION: Suppression du décalage vertical
-    doc.text(booking.arrival || 'N/A', 130, currentY + 12);
+    doc.text(booking.departure || 'N/A', 25, currentY + 8);
+    doc.text('→', 95, currentY + 10); // Ajusté position verticale
+    doc.text(booking.arrival || 'N/A', 130, currentY + 8);
     
-    doc.setFontSize(9);
+    doc.setFontSize(9); // Réduit de 10 à 9
     doc.setFont('helvetica', 'normal');
-    doc.text('DÉPART', 25, currentY + 6);
-    doc.text(formatDate(booking.departureDateTime), 25, currentY + 18);
-    doc.text(formatTime(booking.departureDateTime), 25, currentY + 22);
-    doc.text('ARRIVÉE', 130, currentY + 6);
+    doc.text('DÉPART', 25, currentY + 3);
+    doc.text(formatDate(booking.departureDateTime), 25, currentY + 14);
+    doc.text(formatTime(booking.departureDateTime), 25, currentY + 18);
+    doc.text('ARRIVÉE', 130, currentY + 3);
     if (booking.arrivalDateTime && booking.arrivalDateTime !== 'Non spécifié') {
-      doc.text(formatDate(booking.arrivalDateTime), 130, currentY + 18);
-      doc.text(formatTime(booking.arrivalDateTime), 130, currentY + 22);
+      doc.text(formatDate(booking.arrivalDateTime), 130, currentY + 14);
+      doc.text(formatTime(booking.arrivalDateTime), 130, currentY + 18);
     }
 
-    currentY += 32; // CORRECTION: Espacement augmenté pour éviter les chevauchements
+    currentY += 28; // AMÉLIORATION: Espacement ajusté
 
-    // Retour et arrivée retour - CORRECTION: Alignement identique au vol aller
+    // Retour et arrivée retour - AMÉLIORATION: Même logique d'espacement
     if (booking.returnDepartureDateTime) {
       doc.setTextColor(...secondaryColor);
       doc.setFontSize(15);
       doc.setFont('helvetica', 'bold');
-      doc.text(booking.returnDeparture || booking.arrival, 25, currentY + 12);
-      doc.text('→', 95, currentY + 12); // CORRECTION: Même alignement que l'aller
-      doc.text(booking.returnArrival || booking.departure, 130, currentY + 12);
+      doc.text(booking.returnDeparture || booking.arrival, 25, currentY + 8);
+      doc.text('→', 95, currentY + 10);
+      doc.text(booking.returnArrival || booking.departure, 130, currentY + 8);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text('DÉPART RETOUR', 25, currentY + 6);
-      doc.text(formatDate(booking.returnDepartureDateTime), 25, currentY + 18);
-      doc.text(formatTime(booking.returnDepartureDateTime), 25, currentY + 22);
-      doc.text('ARRIVÉE RETOUR', 130, currentY + 6);
+      doc.text('DÉPART RETOUR', 25, currentY + 3);
+      doc.text(formatDate(booking.returnDepartureDateTime), 25, currentY + 14);
+      doc.text(formatTime(booking.returnDepartureDateTime), 25, currentY + 18);
+      doc.text('ARRIVÉE RETOUR', 130, currentY + 3);
       if (booking.returnArrivalDateTime && booking.returnArrivalDateTime !== 'Non spécifié') {
-        doc.text(formatDate(booking.returnArrivalDateTime), 130, currentY + 18);
-        doc.text(formatTime(booking.returnArrivalDateTime), 130, currentY + 22);
+        doc.text(formatDate(booking.returnArrivalDateTime), 130, currentY + 14);
+        doc.text(formatTime(booking.returnArrivalDateTime), 130, currentY + 18);
       }
-      currentY += 32; // CORRECTION: Espacement identique
+      currentY += 28;
     }
 
     // Vol et compagnie + Prix - AMÉLIORATION: Hauteur réduite et meilleur espacement
@@ -231,7 +231,7 @@ const generateTicketPDF = async (booking) => {
     doc.setFontSize(15); // Réduit de 16 à 15
     doc.text(`${booking.price || 0} ${booking.currency || 'EUR'}`, 115, currentY + 16);
 
-    currentY += boxHeight + 12; // CORRECTION: Espacement augmenté après les boîtes vol/prix
+    currentY += boxHeight + 8; // AMÉLIORATION: Espacement contrôlé
 
     // QR Code - AMÉLIORATION: Repositionnement et taille optimisée
     const qrData = `QR:${booking.ticketNumber}:${booking.ticketToken}`;

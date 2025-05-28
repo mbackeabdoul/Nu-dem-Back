@@ -2,6 +2,8 @@ const User = require('../models/modelUtilisateur');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
 const { sendConfirmationEmail } = require('../services/emailService');
 
 exports.inscription = async (req, res) => {
@@ -78,21 +80,53 @@ exports.connexion = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
+
   try {
+    // 1. Vérifier si l'utilisateur existe
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ message: 'Email non trouvé.' });
     }
+
+    // 2. Générer un token sécurisé
     const token = crypto.randomBytes(32).toString('hex');
-    const expire = Date.now() + 3600000;
+    const expire = Date.now() + 3600000; // 1 heure
+
+    // 3. Stocker le token et son expiration dans la base
     user.resetToken = token;
     user.resetTokenExp = expire;
     await user.save();
-    console.log(`Token pour réinitialisation : ${token}`);
-    res.status(200).json({
-      message: 'Lien de réinitialisation généré (voir console).',
-      token,
+
+    // 4. Lien de réinitialisation (frontend)
+const resetLink = `https://nioudemvoyage.netlify.app/reset-password/${token}`;
+
+    // 5. Configurer le mailer (tu peux utiliser Gmail ou autre service)
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
     });
+
+    const mailOptions = {
+      to: user.email,
+      from: process.env.EMAIL_USER,
+      subject: 'Réinitialisation de votre mot de passe',
+      html: `
+        <p>Vous avez demandé à réinitialiser votre mot de passe.</p>
+        <p>Cliquez sur ce lien pour définir un nouveau mot de passe :</p>
+        <a href="${resetLink}">${resetLink}</a>
+        <p>Ce lien expirera dans 1 heure.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({
+      message: 'Un lien de réinitialisation a été envoyé à votre adresse email.',
+    });
+
   } catch (err) {
     console.error('Erreur forgotPassword:', err.message);
     res.status(500).json({ message: 'Erreur serveur.' });
@@ -101,19 +135,30 @@ exports.forgotPassword = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
+
   try {
+    // 1. Trouver l'utilisateur avec le bon token non expiré
     const user = await User.findOne({
       resetToken: token,
       resetTokenExp: { $gt: Date.now() },
     });
+
     if (!user) {
-      return res.status(400).json({ message: 'Token invalide ou expiré.' });
+      return res.status(400).json({ message: 'Lien invalide ou expiré.' });
     }
-    user.motDePasse = await bcrypt.hash(newPassword, 10);
+
+    // 2. Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 3. Mettre à jour le mot de passe
+    user.motDePasse = hashedPassword;
     user.resetToken = undefined;
     user.resetTokenExp = undefined;
+
     await user.save();
-    res.status(200).json({ message: 'Mot de passe mis à jour.' });
+
+    res.status(200).json({ message: 'Mot de passe réinitialisé avec succès.' });
+
   } catch (err) {
     console.error('Erreur resetPassword:', err.message);
     res.status(500).json({ message: 'Erreur serveur.' });
