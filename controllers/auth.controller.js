@@ -98,7 +98,7 @@ exports.forgotPassword = async (req, res) => {
     await user.save();
 
     // 4. Lien de réinitialisation (frontend)
-const resetLink = `https://nioudemvoyage.netlify.app/reset-password/${token}`;
+    const resetLink = `https://nioudemvoyage.netlify.app/reset-password/${token}`;
 
     // 5. Configurer le mailer (tu peux utiliser Gmail ou autre service)
     const transporter = nodemailer.createTransport({
