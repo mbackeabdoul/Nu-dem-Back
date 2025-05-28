@@ -290,6 +290,7 @@ const generateTicketPDF = async (booking) => {
 };
 
 // Templates email
+// Templates email
 const getEmailTemplate = (booking, isConfirmation = false) => {
   const logoHTML = `<img src="cid:logo" alt="Logo" style="height: 50px; margin-bottom: 20px;">`;
 
@@ -297,19 +298,249 @@ const getEmailTemplate = (booking, isConfirmation = false) => {
     return `
       <!DOCTYPE html>
       <html>
-      <head><meta charset="utf-8"><style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;margin:0;padding:0;background-color:#f8f9fa}.container{max-width:600px;margin:0 auto;background:white;border-radius:10px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1)}.header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:40px 30px;text-align:center}.content{padding:40px 30px}.button{display:inline-block;background:#667eea;color:white;padding:12px 30px;text-decoration:none;border-radius:25px;margin:20px 0;font-weight:bold}.footer{background:#f8f9fa;padding:20px 30px;text-align:center;color:#6c757d;font-size:14px}</style></head>
-      <body><div class="container"><div class="header">${logoHTML}<h1>Bienvenue ${booking.prenom} !</h1><p>Votre compte a été créé avec succès</p></div><div class="content"><h2>Félicitations ! 🎉</h2><p>Votre inscription a été confirmée. Vous pouvez maintenant :</p><ul><li>Rechercher et réserver des vols</li><li>Gérer vos réservations</li><li>Recevoir vos billets par email</li></ul><a href="#" class="button">Commencer à réserver</a></div><div class="footer"><p>Merci de votre confiance !</p></div></div></body></html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+          }
+          .content {
+            padding: 40px 30px;
+          }
+          .button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 25px;
+            margin: 20px 0;
+            font-weight: bold;
+          }
+          .footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            ${logoHTML}
+            <h1>Bienvenue ${booking.prenom} !</h1>
+            <p>Votre compte a été créé avec succès</p>
+          </div>
+          <div class="content">
+            <h2>Félicitations ! 🎉</h2>
+            <p>Votre inscription a été confirmée. Vous pouvez maintenant :</p>
+            <ul>
+              <li>Rechercher et réserver des vols</li>
+              <li>Gérer vos réservations</li>
+              <li>Recevoir vos billets par email</li>
+            </ul>
+            <a href="https://nioudemvoyage.netlify.app/recherche" class="button">Commencer à réserver</a>
+          </div>
+          <div class="footer">
+            <p>Merci de votre confiance !</p>
+          </div>
+        </div>
+      </body>
+      </html>
     `;
   }
 
+  // Le reste du template (pour le billet) reste inchangé
   return `
     <!DOCTYPE html>
     <html>
-    <head><meta charset="utf-8"><style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;margin:0;padding:0;background-color:#f8f9fa}.container{max-width:600px;margin:0 auto;background:white;border-radius:10px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1)}.header{background:linear-gradient(135deg,#2980b9 0%,#3498db 100%);color:white;padding:40px 30px;text-align:center}.ticket{background:white;margin:20px;border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1)}.ticket-header{background:linear-gradient(135deg,#2980b9,#3498db);color:white;padding:20px}.flight-info{display:flex;justify-content:space-between;align-items:center;margin:20px 0}.location{text-align:center;flex:1}.location-code{font-size:24px;font-weight:bold;color:#2c3e50}.location-name{font-size:12px;color:#7f8c8d;margin-top:5px}.arrow{font-size:20px;color:#3498db;margin:0 20px}.details{padding:20px;background:#f8f9fa}.detail-row{display:flex;justify-content:space-between;margin:10px 0}.qr-section{text-align:center;padding:20px;background:#ecf0f1}.status{padding:15px;text-align:center;font-weight:bold;color:white}.status.completed{background:#27ae60}.status.pending{background:#f39c12}.footer{background:#34495e;color:white;padding:20px 30px;text-align:center}</style></head>
-    <body><div class="container"><div class="header">${logoHTML}<h1>Votre Billet Électronique</h1><p>Réservation confirmée - N° ${booking.ticketNumber}</p></div><div class="ticket"><div class="ticket-header"><h2>Détails du Vol</h2><p>Vol ${booking.flightNumber || 'N/A'} - ${booking.airline || 'Compagnie'}</p></div><div style="padding:20px"><div class="flight-info"><div class="location"><div class="location-code">${booking.departure || 'N/A'}</div><div class="location-name">DÉPART</div><div style="margin-top:10px;font-weight:bold">${formatTime(booking.departureDateTime)}</div><div style="font-size:12px;color:#7f8c8d">${formatDate(booking.departureDateTime)}</div></div><div class="arrow">✈️</div><div class="location"><div class="location-code">${booking.arrival || 'N/A'}</div><div class="location-name">ARRIVÉE</div>${booking.arrivalDateTime && booking.arrivalDateTime !== 'Non spécifié' ? `<div style="margin-top:10px;font-weight:bold">${formatTime(booking.arrivalDateTime)}</div><div style="font-size:12px;color:#7f8c8d">${formatDate(booking.arrivalDateTime)}</div>` : ''}</div></div><div class="details"><div class="detail-row"><span><strong>Passager:</strong></span><span>${booking.customerName || 'N/A'}</span></div><div class="detail-row"><span><strong>Siège:</strong></span><span>${booking.seat || 'Non assigné'}</span></div><div class="detail-row"><span><strong>Prix:</strong></span><span><strong>${booking.price || 0} ${booking.currency || 'EUR'}</strong></span></div><div class="detail-row"><span><strong>Enregistrement:</strong></span><span>${formatTime(booking.checkInTime) || 'N/A'}</span></div></div></div><div class="status ${booking.paymentStatus}">${booking.paymentStatus === 'completed' ? '✅ PAIEMENT CONFIRMÉ' : '⏳ PAIEMENT EN ATTENTE'}</div></div><div class="qr-section"><h3>Code de Vérification</h3><p>Présentez ce billet à l'aéroport ou scannez le QR code dans le PDF joint</p></div><div class="footer"><p><strong>Instructions importantes:</strong></p><p>• Arrivez 2h avant le départ international</p><p>• Munissez-vous d'une pièce d'identité valide</p><p>• Le PDF joint contient votre QR code de vérification</p></div></div></body></html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          margin: 0;
+          padding: 0;
+          background-color: #f8f9fa;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          background: white;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+          background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+          color: white;
+          padding: 40px 30px;
+          text-align: center;
+        }
+        .ticket {
+          background: white;
+          margin: 20px;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .ticket-header {
+          background: linear-gradient(135deg, #2980b9, #3498db);
+          color: white;
+          padding: 20px;
+        }
+        .flight-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin: 20px 0;
+        }
+        .location {
+          text-align: center;
+          flex: 1;
+        }
+        .location-code {
+          font-size: 24px;
+          font-weight: bold;
+          color: #2c3e50;
+        }
+        .location-name {
+          font-size: 12px;
+          color: #7f8c8d;
+          margin-top: 5px;
+        }
+        .arrow {
+          font-size: 20px;
+          color: #3498db;
+          margin: 0 20px;
+        }
+        .details {
+          padding: 20px;
+          background: #f8f9fa;
+        }
+        .detail-row {
+          display: flex;
+          justify-content: space-between;
+          margin: 10px 0;
+        }
+        .qr-section {
+          text-align: center;
+          padding: 20px;
+          background: #ecf0f1;
+        }
+        .status {
+          padding: 15px;
+          text-align: center;
+          font-weight: bold;
+          color: white;
+        }
+        .status.completed {
+          background: #27ae60;
+        }
+        .status.pending {
+          background: #f39c12;
+        }
+        .footer {
+          background: #34495e;
+          color: white;
+          padding: 20px 30px;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          ${logoHTML}
+          <h1>Votre Billet Électronique</h1>
+          <p>Réservation confirmée - N° ${booking.ticketNumber}</p>
+        </div>
+        <div class="ticket">
+          <div class="ticket-header">
+            <h2>Détails du Vol</h2>
+            <p>Vol ${booking.flightNumber || 'N/A'} - ${booking.airline || 'Compagnie'}</p>
+          </div>
+          <div style="padding:20px">
+            <div class="flight-info">
+              <div class="location">
+                <div class="location-code">${booking.departure || 'N/A'}</div>
+                <div class="location-name">DÉPART</div>
+                <div style="margin-top:10px;font-weight:bold">${formatTime(booking.departureDateTime)}</div>
+                <div style="font-size:12px;color:#7f8c8d">${formatDate(booking.departureDateTime)}</div>
+              </div>
+              <div class="arrow">✈️</div>
+              <div class="location">
+                <div class="location-code">${booking.arrival || 'N/A'}</div>
+                <div class="location-name">ARRIVÉE</div>
+                ${
+                  booking.arrivalDateTime && booking.arrivalDateTime !== 'Non spécifié'
+                    ? `<div style="margin-top:10px;font-weight:bold">${formatTime(
+                        booking.arrivalDateTime
+                      )}</div>
+                       <div style="font-size:12px;color:#7f8c8d">${formatDate(
+                         booking.arrivalDateTime
+                       )}</div>`
+                    : ''
+                }
+              </div>
+            </div>
+            <div class="details">
+              <div class="detail-row">
+                <span><strong>Passager:</strong></span>
+                <span>${booking.customerName || 'N/A'}</span>
+              </div>
+              <div class="detail-row">
+                <span><strong>Siège:</strong></span>
+                <span>${booking.seat || 'Non assigné'}</span>
+              </div>
+              <div class="detail-row">
+                <span><strong>Prix:</strong></span>
+                <span><strong>${booking.price || 0} ${booking.currency || 'EUR'}</strong></span>
+              </div>
+              <div class="detail-row">
+                <span><strong>Enregistrement:</strong></span>
+                <span>${formatTime(booking.checkInTime) || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+          <div class="status ${booking.paymentStatus}">
+            ${booking.paymentStatus === 'completed' ? '✅ PAIEMENT CONFIRMÉ' : '⏳ PAIEMENT EN ATTENTE'}
+          </div>
+        </div>
+        <div class="qr-section">
+          <h3>Code de Vérification</h3>
+          <p>Présentez ce billet à l'aéroport ou scannez le QR code dans le PDF joint</p>
+        </div>
+        <div class="footer">
+          <p><strong>Instructions importantes:</strong></p>
+          <p>• Arrivez 2h avant le départ international</p>
+          <p>• Munissez-vous d'une pièce d'identité valide</p>
+          <p>• Le PDF joint contient votre QR code de vérification</p>
+        </div>
+      </div>
+    </body>
+    </html>
   `;
 };
-
 // Fonctions d'envoi
 const sendTicketEmail = async (booking) => {
   try {
